@@ -1,0 +1,545 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Clock, Beaker, Wind, Shield, Droplets, Zap, Sparkles, 
+  AlertTriangle, Dices, RotateCcw, ArrowDown, 
+  Printer, Play, Pause, CheckCircle2, Circle, X
+} from 'lucide-react';
+
+export default function App() {
+  const colors = {
+    t1: '#6BD3E7',
+    t2: '#A8DBD8',
+    t3: '#E0E4CD',
+    t4: '#F38732',
+    bg: '#FAFAFA',
+    text: '#2D3748'
+  };
+
+  const materials = [
+    { name: 'Oliba-olioa', qty: '100 ml', icon: <Droplets size={18} /> },
+    { name: 'Sosa Kaustikoa', qty: '14 g', icon: <Zap size={18} /> },
+    { name: 'Ur distilatua', qty: '30 ml', icon: <Wind size={18} /> },
+    { name: 'Izotz-bainua', qty: 'Hozteko', icon: <Clock size={18} /> },
+    { name: 'Irabiagailua', qty: '1', icon: <Zap size={18} /> },
+    { name: 'Hauspeakin ontziak', qty: '2', icon: <Beaker size={18} /> },
+  ];
+
+  const rolesData = [
+    { id: 1, name: "1. Ardura: Sosa", color: colors.t1, desc: "Ura eta sosa neurtu, nahastu eta izotz-bainuan hoztu." },
+    { id: 2, name: "2. Ardura: Olioa", color: colors.t2, desc: "Olioa neurtu, tenperatura kontrolatu eta 40°C-ra berotu." },
+    { id: 3, name: "3. Ardura: Alkimia", color: colors.t3, desc: "Irabiagailuarekin emultsioa sortu eta moldeatu." },
+    { id: 4, name: "4. Ardura: Garbiketa", color: colors.t4, desc: "Denbora kontrolatu, ingurua garbitu eta koordinatu." }
+  ];
+
+  const [assignments, setAssignments] = useState({ A: null, B: null, C: null, D: null });
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [rouletteValue, setRouletteValue] = useState('?');
+  
+  // HOBEKUNTZA BERRIAK: Estatuak
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [isPrintMode, setIsPrintMode] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(40 * 60); // 40 minutu
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  const nextTeam = Object.keys(assignments).find(team => assignments[team] === null);
+  const allAssigned = !nextTeam;
+
+  // Kronometroaren Logika
+  useEffect(() => {
+    let interval;
+    if (isTimerRunning && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsTimerRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timeLeft]);
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const spinRoulette = () => {
+    if (!nextTeam || isSpinning) return;
+    setIsSpinning(true);
+    
+    const availableRoles = rolesData.filter(r => !Object.values(assignments).some(a => a?.id === r.id));
+    let counter = 0;
+    const maxSpins = 20; 
+    
+    const interval = setInterval(() => {
+      const randomRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+      setRouletteValue(randomRole.id);
+      counter++;
+      
+      if (counter >= maxSpins) {
+        clearInterval(interval);
+        const finalRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+        setRouletteValue(finalRole.id);
+        setAssignments(prev => {
+          const newAssignments = { ...prev, [nextTeam]: finalRole };
+          // Zozketa amaitu den begiratu (Konfetia abiarazteko)
+          if (!Object.keys(newAssignments).find(t => newAssignments[t] === null)) {
+            setShowConfetti(true);
+            setTimeout(() => setShowConfetti(false), 6000); // 6 segundora kendu
+          }
+          return newAssignments;
+        });
+        setIsSpinning(false);
+      }
+    }, 100);
+  };
+
+  const resetAssignments = () => {
+    if(window.confirm("Zozketa, kronometroa eta markatutako urratsak ezabatuko dira. Ziur zaude?")) {
+      setAssignments({ A: null, B: null, C: null, D: null });
+      setRouletteValue('?');
+      setCompletedSteps([]);
+      setTimeLeft(40 * 60);
+      setIsTimerRunning(false);
+    }
+  };
+
+  const getTeamLabelForRole = (roleId) => {
+    const team = Object.keys(assignments).find(t => assignments[t]?.id === roleId);
+    return team ? `${team} Taldea` : 'Zozketatu gabe';
+  };
+
+  const toggleStep = (stepId) => {
+    setCompletedSteps(prev => 
+      prev.includes(stepId) ? prev.filter(id => id !== stepId) : [...prev, stepId]
+    );
+  };
+
+  // Inprimatzeko diseinua prestatzeko (ERabat immunea Modu Ilunari)
+  if (isPrintMode) {
+    return (
+      <div className="font-sans" style={{ backgroundColor: '#ffffff', color: '#000000', minHeight: '100vh', padding: '20px' }}>
+        <style>{`
+          :root { color-scheme: light !important; }
+          html, body, #root { 
+            background-color: #ffffff !important; 
+            color: #000000 !important;
+          }
+          @media print {
+            html, body, #root { 
+              background-color: #ffffff !important; 
+              color: #000000 !important; 
+            }
+            .no-print { display: none !important; }
+            * { 
+              -webkit-print-color-adjust: exact !important; 
+              print-color-adjust: exact !important; 
+            }
+          }
+        `}</style>
+        
+        {/* Print Controls (Ez dira inprimatuko) */}
+        <div className="no-print fixed top-4 right-4 flex flex-col md:flex-row gap-4 z-50 items-end md:items-center">
+          <div className="px-4 py-2 rounded-lg shadow-lg text-sm font-medium border flex items-center gap-2" style={{ backgroundColor: '#eff6ff', color: '#1e40af', borderColor: '#bfdbfe' }}>
+            <Printer size={18} /> Sakatu <kbd className="px-2 py-1 rounded shadow-sm border font-mono text-xs font-bold" style={{ backgroundColor: '#ffffff', color: '#000000', borderColor: '#e5e7eb' }}>Ctrl + P</kbd> inprimatzeko
+          </div>
+          <button onClick={() => setIsPrintMode(false)} className="px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 font-bold transition-colors" style={{ backgroundColor: '#e5e7eb', color: '#1f2937' }}>
+            <X size={18} /> Itxi
+          </button>
+        </div>
+
+        <div className="max-w-4xl mx-auto mt-16 md:mt-0" style={{ backgroundColor: '#ffffff' }}>
+          <h1 className="text-3xl md:text-4xl font-serif mb-2 border-b-4 pb-4" style={{ borderColor: '#F38732', color: '#000000' }}>Xaboiaren Alkimia: Laborategiko Gida</h1>
+          <p className="mb-8 italic" style={{ color: '#374151' }}>40 minutuko prozedura paraleloa - 4 Taldetan banatuta.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8" style={{ backgroundColor: '#ffffff' }}>
+            <div>
+              <h2 className="text-xl font-bold mb-4 border-b pb-2" style={{ borderColor: '#d1d5db', color: '#000000' }}>Materialak</h2>
+              <ul className="list-disc pl-5 space-y-1 text-sm font-medium" style={{ color: '#000000' }}>
+                {materials.map((m, i) => <li key={i}>{m.qty} {m.name}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-4 border-b pb-2" style={{ borderColor: '#d1d5db', color: '#dc2626' }}>Segurtasun Arauak</h2>
+              <ul className="list-disc pl-5 space-y-1 text-sm font-bold" style={{ color: '#000000' }}>
+                <li>Beti erabili mantala, eskularruak eta babes-betaurrekoak.</li>
+                <li>Sosa beti urera bota. INOIZ EZ ura sosara.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-serif mb-6 text-center" style={{ color: '#000000' }}>Erreakzioaren Fluxua</h2>
+          
+          {/* Print Flowchart (Simple & linear for paper) */}
+          <div className="space-y-4" style={{ backgroundColor: '#ffffff' }}>
+            <PrintStep color={colors.t4} time="00-05 min" role="4. Ardura: Prestaketa" desc="Material guztiak banatu mahaietan eta izotz-bainua prestatu." team={getTeamLabelForRole(4)} />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <PrintStep color={colors.t1} time="05-15 min" role="1. Ardura: Sosa" desc="Ura eta sosa nahastu. Izotz-bainuan sartu 40°C lortu arte." team={getTeamLabelForRole(1)} width="w-full sm:w-1/2" />
+              <PrintStep color={colors.t2} time="05-15 min" role="2. Ardura: Olioa" desc="Olioa neurtu eta sutan berotu 40-50°C bitartean egon arte." team={getTeamLabelForRole(2)} width="w-full sm:w-1/2" />
+            </div>
+            <PrintStep color={colors.t3} time="15-25 min" role="3. Ardura: Saponifikazioa" desc="BAT-EGITEA! Sosa oliora bota. Irabiagailuarekin 'Trazua' lortu." team={getTeamLabelForRole(3)} />
+            <PrintStep color={colors.t3} time="25-30 min" role="3. Ardura: Moldeatzea" desc="Orea moldeetara bota. Kolpetxoak eman burbuilak kentzeko." team={getTeamLabelForRole(3)} />
+            <PrintStep color={colors.t4} time="30-40 min" role="4. Ardura: Garbiketa" desc="Guztion artean materiala garbitu (Eskularruak kendu gabe!)." team={`Gidaria: ${getTeamLabelForRole(4)}`} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#FDFBF7] text-gray-800 font-sans overflow-x-hidden selection:bg-[#F38732] selection:text-white pb-24 relative">
+      
+      {/* CSS Animazioak */}
+      <style>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        .animate-confetti { animation: confetti-fall linear forwards; }
+      `}</style>
+
+      {/* Konfeti efektua */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-[100] flex justify-center overflow-hidden">
+          {[...Array(60)].map((_, i) => (
+            <div key={i} className="absolute animate-confetti rounded-sm"
+                 style={{
+                   left: `${Math.random() * 100}%`,
+                   backgroundColor: [colors.t1, colors.t2, colors.t3, colors.t4, '#2D3748'][Math.floor(Math.random() * 5)],
+                   width: `${Math.random() * 10 + 5}px`,
+                   height: `${Math.random() * 15 + 10}px`,
+                   animationDelay: `${Math.random() * 2}s`,
+                   animationDuration: `${Math.random() * 3 + 2}s`
+                 }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Inprimatzeko Botoi Mugikorra (Beti agerian eta handiagoa) */}
+      <button 
+        onClick={() => setIsPrintMode(true)}
+        className="fixed bottom-6 right-6 z-[100] bg-white text-gray-800 px-6 py-4 rounded-full shadow-2xl hover:scale-105 transition-transform border-2 border-[#F38732] flex items-center gap-3"
+        title="Inprimatzeko Bertsioa"
+      >
+        <Printer size={24} className="text-[#F38732]" />
+        <span className="font-bold text-[#2D3748]">Inprimatu Gida</span>
+      </button>
+
+      {/* HEADER - COLLAGE AESTHETIC */}
+      <header className="relative w-full min-h-[70vh] flex items-center justify-center pt-20 pb-10 px-4">
+        <div className="absolute top-10 left-10 w-48 h-64 md:w-64 md:h-80 -rotate-6 shadow-xl rounded-sm overflow-hidden border-8 border-white z-0 opacity-90 transition-transform hover:rotate-0">
+          <img src="https://www.sclubricants.com/wp-content/uploads/2018/07/Biodegradable-Oil.jpg" alt="Hostoa olio tantarekin" className="w-full h-full object-cover" />
+        </div>
+        <div className="absolute bottom-10 right-10 w-40 h-40 md:w-56 md:h-56 rotate-12 shadow-2xl rounded-full overflow-hidden border-4 border-[#E0E4CD] z-10 mix-blend-multiply">
+          <img src="https://images.unsplash.com/photo-1604085572504-a392ddf0d86a?auto=format&fit=crop&q=80&w=400" alt="Loreak eta usainak" className="w-full h-full object-cover opacity-80" />
+        </div>
+        <div className="absolute top-1/4 right-1/4 w-32 h-32 rotate-45 bg-[#6BD3E7]/20 backdrop-blur-md rounded-2xl z-0" />
+        <div className="absolute bottom-1/4 left-1/4 w-48 h-48 rounded-full bg-[#F38732]/10 blur-3xl z-0" />
+
+        <div className="relative z-20 text-center max-w-3xl mx-auto p-8 bg-white/80 backdrop-blur-lg shadow-2xl rounded-2xl border border-white/50">
+          <p className="text-sm tracking-[0.3em] uppercase text-[#F38732] font-semibold mb-3">Laborategiko Prozedura</p>
+          <h1 className="text-5xl md:text-7xl font-serif text-[#2D3748] mb-6 leading-tight">
+            Xaboiaren <br/><span className="italic" style={{ color: colors.t2 }}>Alkimia</span>
+          </h1>
+          <p className="text-lg md:text-xl text-gray-600 font-light max-w-xl mx-auto">
+            Zortzi esku, lau ardura, zozketa bat. 40 minutuko sinergia prozesu bat.
+          </p>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4">
+        
+        {/* INPRIMATZEKO BOTOI NAGUSIA (Goian) */}
+        <div className="flex justify-end pt-4 pb-8 relative z-20">
+          <button 
+            onClick={() => setIsPrintMode(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-[#F38732] hover:text-[#F38732] transition-all shadow-sm font-bold"
+          >
+            <Printer size={20} />
+            Inprimatu Laborategiko Gida
+          </button>
+        </div>
+
+        {/* MATERIALAK ETA SEGURTASUNA */}
+        <section className="relative mt-2 mb-24 z-10 grid grid-cols-1 md:grid-cols-12 gap-8">
+          <div className="md:col-span-4 flex flex-col gap-6">
+            <div className="bg-[#2D3748] text-[#E0E4CD] p-8 rounded-[2rem] shadow-xl rotate-[-2deg] hover:rotate-0 transition-transform">
+              <h2 className="flex items-center gap-3 text-2xl font-serif mb-6 text-white"><Shield className="text-[#F38732]" /> Segurtasuna</h2>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3 text-sm">
+                  <AlertTriangle size={16} className="mt-1 text-[#F38732] shrink-0" />
+                  <p>Beti erabili mantala, eskularruak eta babes-betaurrekoak.</p>
+                </li>
+                <li className="flex items-start gap-3 text-sm">
+                  <AlertTriangle size={16} className="mt-1 text-[#F38732] shrink-0" />
+                  <p>Sosa beti urera bota. INOIZ EZ ura sosara.</p>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="md:col-span-8 bg-white p-8 md:p-12 rounded-[2rem] shadow-lg border border-gray-100">
+            <h2 className="text-3xl font-serif mb-8 text-gray-800 flex items-center gap-4">
+              <Beaker className="text-[#6BD3E7]" /> Osagaiak & Materialak
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              {materials.map((mat, i) => (
+                <div key={i} className="flex flex-col border-b-2 pb-4" style={{ borderColor: Object.values(colors)[i%4] }}>
+                  <div className="text-gray-400 mb-2">{mat.icon}</div>
+                  <span className="font-semibold text-gray-800">{mat.name}</span>
+                  <span className="text-sm font-medium text-gray-500 mt-1">{mat.qty}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ZOZKETA ERRULETA */}
+        <section className="mb-24 relative">
+          <div className="relative z-10 bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border-4 border-[#FDFBF7] max-w-5xl mx-auto">
+            <h2 className="text-4xl font-serif text-center mb-4 text-[#2D3748]">Rolen Zozketa</h2>
+            <p className="text-center text-gray-500 mb-10 max-w-xl mx-auto">
+              Sakatzean erruleta martxan jarriko da rolak esleitzeko. Guztiak prest daudenean, kronometroa agertuko da!
+            </p>
+
+            <div className="flex flex-col md:flex-row items-center justify-center gap-12 mb-12">
+              <div className="flex flex-col items-center">
+                <div className={`relative w-40 h-40 rounded-full flex items-center justify-center shadow-inner border-8 border-gray-50 bg-gray-100 mb-6 transition-all duration-300 ${isSpinning ? 'scale-105' : 'scale-100'}`}>
+                  {isSpinning && (
+                    <div className="absolute inset-0 rounded-full border-4 border-dashed border-[#F38732] animate-[spin_3s_linear_infinite]" />
+                  )}
+                  <span className="text-6xl font-serif text-[#2D3748] z-10">{rouletteValue}</span>
+                </div>
+                
+                {!allAssigned ? (
+                  <button 
+                    onClick={spinRoulette}
+                    disabled={isSpinning}
+                    className="flex items-center gap-2 px-8 py-4 bg-[#2D3748] hover:bg-black text-white rounded-full font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-xl"
+                  >
+                    <Dices size={20} className={isSpinning ? "animate-spin" : ""} />
+                    {isSpinning ? 'Zozketatzen...' : `Zozketatu ${nextTeam} Taldea`}
+                  </button>
+                ) : (
+                  <button 
+                    onClick={resetAssignments}
+                    className="flex items-center gap-2 px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full font-semibold transition-all hover:scale-105 shadow-md"
+                  >
+                    <RotateCcw size={20} />
+                    Berriz Zozketatu
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {['A', 'B', 'C', 'D'].map(teamId => {
+                const role = assignments[teamId];
+                const cardColor = role ? role.color : '#E5E7EB'; 
+                const textColor = role?.id === 3 ? '#2D3748' : 'white'; 
+                
+                return (
+                  <div key={teamId} className={`relative bg-white p-6 rounded-3xl transition-all duration-500 overflow-hidden ${role ? 'shadow-lg border-2 scale-100' : 'shadow-sm border-2 border-dashed border-gray-200 grayscale opacity-70 scale-95'}`}
+                       style={{ borderColor: role ? cardColor : '' }}>
+                    <div className="absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-10 transition-transform duration-500" style={{ backgroundColor: cardColor }} />
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-2xl font-serif text-[#2D3748]">Taldea {teamId}</h3>
+                      {role && (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-md" style={{ backgroundColor: cardColor, color: textColor }}>
+                          {role.id}
+                        </div>
+                      )}
+                    </div>
+                    {role ? (
+                      <div className="animate-[fadeIn_0.5s_ease-out]">
+                        <h4 className="font-bold mb-2" style={{ color: role.id === 3 ? '#9ca3af' : cardColor, filter: 'brightness(0.8)' }}>
+                          {role.name.split(': ')[1]}
+                        </h4>
+                        <p className="text-sm text-gray-500 leading-relaxed">{role.desc}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">Zozketaren zain...</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* KRONOMETROA ETA FLUXUGRAMA (Bakarrik denak esleituta badaude argi erakutsi) */}
+        <section className={`relative transition-all duration-1000 ${!allAssigned ? 'opacity-40 blur-sm pointer-events-none' : 'opacity-100 blur-0'}`}>
+          
+          {/* KRONOMETROA */}
+          <div className="max-w-2xl mx-auto bg-[#2D3748] text-white rounded-[3rem] p-8 mb-16 shadow-2xl flex flex-col items-center transform transition-all hover:scale-[1.02]">
+            <h3 className="text-[#A8DBD8] font-bold tracking-widest uppercase mb-2 text-sm flex items-center gap-2">
+              <Clock size={16} /> Laborategiko Denbora
+            </h3>
+            <div className={`text-8xl font-serif font-light mb-6 tracking-tight ${timeLeft <= 300 ? 'text-[#F38732] animate-pulse' : 'text-white'}`}>
+              {formatTime(timeLeft)}
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setIsTimerRunning(!isTimerRunning)}
+                className={`px-8 py-3 rounded-full font-bold flex items-center gap-2 transition-all shadow-lg ${isTimerRunning ? 'bg-[#F38732] text-white hover:bg-orange-600' : 'bg-[#E0E4CD] text-[#2D3748] hover:bg-white'}`}
+              >
+                {isTimerRunning ? <><Pause size={20} /> Pausatu</> : <><Play size={20} /> Hasi Prozesua</>}
+              </button>
+              <button onClick={() => setTimeLeft(40 * 60)} className="px-6 py-3 rounded-full font-bold flex items-center gap-2 bg-gray-700 hover:bg-gray-600 transition-all">
+                <RotateCcw size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-serif mb-4 flex items-center justify-center gap-3">
+              <Sparkles className={allAssigned ? "text-[#F38732]" : "text-gray-300"} />
+              Erreakzioaren Fluxua & Checklist
+            </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto mb-6">
+              Markatu txartel bakoitzeko "Zirkulua" urratsa burutu ahala, prozesuaren jarraipena egiteko.
+            </p>
+            <div className="inline-block bg-white px-6 py-3 rounded-full shadow-sm border border-gray-100 font-serif text-lg text-gray-600">
+              <span style={{color: colors.t2}}>Olioa</span> + <span style={{color: colors.t1}}>Sosa/Ura</span> = <span style={{color: colors.t3, fontWeight: 'bold'}}>Xaboia</span>
+            </div>
+          </div>
+
+          <div className="max-w-4xl mx-auto flex flex-col items-center">
+            
+            <FlowCard 
+              id="step1" completed={completedSteps.includes('step1')} onToggle={() => toggleStep('step1')}
+              time="00-05 min" team={getTeamLabelForRole(4)} role="4. Ardura: Prestaketa"
+              color={colors.t4} icon={<Shield size={20} />} width="w-full md:w-2/3"
+              desc="Material guztiak banatu mahaietan eta izotz-bainua prestatu."
+            />
+            <Connector color={colors.t4} />
+
+            <div className="flex flex-col md:flex-row w-full gap-4 md:gap-8 justify-between relative">
+              <div className="w-full md:w-1/2 flex flex-col items-center">
+                <FlowCard 
+                  id="step2a" completed={completedSteps.includes('step2a')} onToggle={() => toggleStep('step2a')}
+                  time="05-15 min" team={getTeamLabelForRole(1)} role="1. Ardura: Sosa"
+                  color={colors.t1} icon={<Zap size={20} />} width="w-full"
+                  desc="Ura eta sosa nahastu. Kontuz beroarekin! Izotz-bainuan sartu 40°C lortu arte."
+                />
+              </div>
+              <div className="w-full md:w-1/2 flex flex-col items-center">
+                <FlowCard 
+                  id="step2b" completed={completedSteps.includes('step2b')} onToggle={() => toggleStep('step2b')}
+                  time="05-15 min" team={getTeamLabelForRole(2)} role="2. Ardura: Olioa"
+                  color={colors.t2} icon={<Droplets size={20} />} width="w-full"
+                  desc="Olioa neurtu pitxerrean eta sutan berotu 40-50°C bitartean egon arte."
+                />
+              </div>
+            </div>
+
+            <div className="hidden md:flex w-full h-16 relative">
+              <div className="absolute left-[25%] top-0 w-[2px] h-8" style={{ backgroundColor: colors.t1 }}></div>
+              <div className="absolute right-[25%] top-0 w-[2px] h-8" style={{ backgroundColor: colors.t2 }}></div>
+              <div className="absolute left-[25%] top-8 w-[50%] h-[2px]" style={{ background: `linear-gradient(to right, ${colors.t1}, ${colors.t2})` }}></div>
+              <div className="absolute left-[50%] top-8 w-[2px] h-8" style={{ background: `linear-gradient(to bottom, ${colors.t2}, ${colors.t3})` }}></div>
+            </div>
+            <div className="md:hidden flex justify-center py-4"><ArrowDown className="text-gray-300" /></div>
+
+            <FlowCard 
+              id="step3" completed={completedSteps.includes('step3')} onToggle={() => toggleStep('step3')}
+              time="15-25 min" team={getTeamLabelForRole(3)} role="3. Ardura: Saponifikazioa"
+              color={colors.t3} textColor="#2D3748" icon={<Wind size={20} />} width="w-full md:w-2/3" highlight
+              desc="BAT-EGITEA! Sosa oliora bota. Irabiagailua sartu hondo-hondoraino eta nahastu abiadura motelean 'Trazua' (maionesa loditasuna) lortu arte."
+            />
+            <Connector color={colors.t3} />
+
+            <FlowCard 
+              id="step4" completed={completedSteps.includes('step4')} onToggle={() => toggleStep('step4')}
+              time="25-30 min" team={getTeamLabelForRole(3)} role="3. Ardura: Moldeatzea"
+              color={colors.t3} textColor="#2D3748" icon={<Beaker size={20} />} width="w-full md:w-1/2"
+              desc="Orea silikonazko moldeetara bota. Beste taldeek kolpetxoak eman ditzakete burbuilak kentzeko."
+            />
+            <Connector color={colors.t3} toColor={colors.t4} />
+
+            <FlowCard 
+              id="step5" completed={completedSteps.includes('step5')} onToggle={() => toggleStep('step5')}
+              time="30-40 min" team={`Guztiok (${getTeamLabelForRole(4)}-k gidatuta)`} role="4. Ardura: Garbiketa"
+              color={colors.t4} icon={<Sparkles size={20} />} width="w-full md:w-2/3"
+              desc="Ez kendu eskularruak! Garbitu erabilitako tresna guztiak ur ugarirekin."
+            />
+
+          </div>
+        </section>
+
+        {/* AMAIERA */}
+        <section className="mt-24 flex justify-center">
+          <div className="relative bg-white p-6 pb-12 shadow-2xl rotate-2 w-80 md:w-96 rounded-sm border border-gray-100 hover:rotate-0 transition-transform duration-500">
+            <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-32 h-8 bg-gray-200/50 backdrop-blur-sm -rotate-2"></div>
+            <img src="https://cdn.shopify.com/s/files/1/0568/5621/5731/files/aurelia-dubois-6J0MUsmS4fQ-unsplash_1_480x480.jpg?v=1728347325" alt="Xaboi naturalak" className="w-full h-48 object-cover rounded-sm mb-4 filter contrast-125" />
+            <h3 className="font-serif text-2xl mb-2 text-center text-gray-800">4 Asteko Pazientzia</h3>
+            <p className="text-gray-600 text-center font-light text-sm italic">
+              Utzi xaboia moldeetan 48 orduz. Ondoren, atera eta utzi aireztatzen 4 astez erabili aurretik (pH-a orekatzeko).
+            </p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  );
+}
+
+// OSAGAI LAGUNTZAILEAK BERRIAK
+
+function FlowCard({ id, completed, onToggle, time, team, role, color, desc, width, icon, highlight, textColor = 'white' }) {
+  return (
+    <div className={`${width} bg-white rounded-3xl shadow-lg border-2 z-10 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 cursor-pointer ${completed ? 'opacity-60 grayscale-[30%]' : 'opacity-100'}`}
+         style={{ borderColor: color }}
+         onClick={onToggle}>
+      
+      <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundColor: color }}></div>
+      
+      <div className="px-6 py-3 flex items-center justify-between border-b transition-colors" style={{ backgroundColor: completed ? '#e5e7eb' : color, color: completed ? '#9ca3af' : textColor }}>
+        <div className="flex items-center gap-2 font-bold tracking-wide text-sm">
+          {icon}
+          <span className={completed ? 'line-through' : ''}>{role}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-black bg-white/30 px-3 py-1 rounded-full backdrop-blur-sm shadow-sm">{time}</span>
+          <button className="hover:scale-110 transition-transform">
+            {completed ? <CheckCircle2 size={24} className="text-green-600" /> : <Circle size={24} className="opacity-50" />}
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: color, filter: 'brightness(0.7)' }}>
+          {team}
+        </div>
+        <p className={`text-gray-700 leading-relaxed ${highlight ? 'font-medium text-lg' : 'text-sm'} ${completed ? 'line-through opacity-70' : ''}`}>
+          {desc}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Connector({ color, toColor }) {
+  const finalColor = toColor || color;
+  return (
+    <div className="w-full flex justify-center py-2">
+      <div className="w-[2px] h-8" style={{ background: `linear-gradient(to bottom, ${color}, ${finalColor})` }}></div>
+    </div>
+  );
+}
+
+// Inprimatzeko Bertsiorako Osagaia
+function PrintStep({ color, time, role, desc, team, width = "w-full" }) {
+  return (
+    <div className={`${width} border-l-4 p-4 mb-4 rounded-r-lg shadow-sm`} style={{ borderColor: color, backgroundColor: '#f9fafb' }}>
+      <div className="flex justify-between items-center mb-1">
+        <span className="font-bold text-sm" style={{ color: color, filter: 'brightness(0.6)' }}>{role}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded" style={{ backgroundColor: '#e5e7eb', color: '#000000' }}>{time}</span>
+      </div>
+      <p className="text-sm mb-1 font-medium" style={{ color: '#000000' }}>{desc}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#4b5563' }}>{team}</p>
+    </div>
+  );
+}
